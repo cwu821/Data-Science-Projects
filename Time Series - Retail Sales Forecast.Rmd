@@ -1,0 +1,214 @@
+---
+title: "Retail Sales Forecast - Econ 144 Project"
+author: "Jiayu Lyu, Qichen Liang, Catherine Wu"
+date: "4/25/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+## I. (5%) Introduction (describe the data, provide some background on the topic, etc.).
+
+* The data we chose is the data of U.S. retail sales in clothing and clothing accessories sectors. It is retrieved from FRED. The series is from 1992-01-01 to 2020-03-0. It is observed in monthly frequency and in the unit of Millions of Dollars. Therefore, there are 339 observations in total. As the retail sales of clothing can be closely related to people’s purchasing power and economics background, we believe analyzing this series of clothing sales can be helpful in analyzing the economics market in general.  
+
+```{r}
+# Load the required package and data
+library(ggplot2)
+library(forecast)
+library(car)
+library(readr)
+
+RSCCASN <- read_csv("RSCCASN.csv")
+
+## turn dataset into time series data object
+ts_df<-ts(RSCCASN$RSCCASN,start = 1992,frequency = 12)
+
+## check for seasonality and trend
+autoplot(stl(ts_df,s.window="periodic"))
+```
+
+## II. (75%) Results (answers and plots). Consists of two parts:
+
+### 1. Modeling and Forecasting Trend (5% each)
+
+#### (a) Show a time-series plot of your data.
+
+```{r}
+## plot the time series data with mean
+plot.ts(ts_df, main= "Monthly Retail Sales of Clothing and Clothing Accessory Stores", xlab="Years", ylab="Million Dollar")
+abline(h=mean(RSCCASN$RSCCASN),col="red") 
+```
+
+#### (b) Does your plot in (a) suggest that the data are covariance stationary? Explain your answer.
+
+* The plot does suggest that the data is not covariance stationary because it is not mean reverting.
+
+#### (c) Plot and discuss the ACF and PACF of your data.
+
+```{r}
+acf(ts_df, main = "ACF of monthly sales of clothing and clothing accessory stores")
+
+pacf(ts_df, main = "PACF of monthly sales of clothing and clothing accessory stores")
+```
+
+* ACF suggests that the monthly sales of clothing and clothing accessory stores have a high time dependency on past sales, especially with period 12 and period 24, wich means that the monthly sales of each year are highly dependent on the sales of the same month 1 year and 2 years ago.
+
+* PACF suggests that the monthly sales of clothing and clothing accessory stores are positively related to the sales of the same month 1 year ago, and negatively related to the sales 13 months in the past. 
+
+#### (d) Fit a linear and nonlinear (e.g., polynomial, exponential, quadratic + periodic, etc.) model to your series. In one window, show both figures of the original times series plot with the respective fit.
+
+```{r}
+
+lnrmdl<-lm(RSCCASN$RSCCASN ~ RSCCASN$DATE)
+summary(lnrmdl)
+
+## fitted a log(y) model
+logy<-log(RSCCASN$RSCCASN)
+
+nlnrmdl<-lm(logy ~ RSCCASN$DATE)
+summary(nlnrmdl)
+
+plot(RSCCASN$RSCCASN,)
+lines(lnrmdl$fitted.values, type="l",col="red")
+lines(exp(nlnrmdl$fitted.values), type="l",col="blue")
+```
+
+#### (e) For each model, plot the respective residuals vs. fitted values and discuss your observations.
+
+```{r}
+
+plot(lnrmdl,which = c(1,1))
+
+plot(nlnrmdl,which = c(1,1))
+
+```
+
+* Generally, the two plots show residuals of similar values are evenly spaced above and below 0. For linear model, the spread of residuals are slightly wider as time goes, and for non-linear model, the residuals has a non-linear trend, which indicates that log-linear is not a good fit. 
+
+#### (f) For each model, plot a histogram of the residuals and discuss your observations
+
+```{r}
+hist(lnrmdl$residuals, probability = T)
+lines(density(lnrmdl$residuals), col="red")
+hist(RSCCASN$RSCCASN - exp(nlnrmdl$fitted.values), breaks = 20, probability = T)
+lines(density(RSCCASN$RSCCASN - exp(nlnrmdl$fitted.values)), col="red")
+```
+
+* Both histograms of the linear and log model show that there are wider tails at both ends compared with a normal distribution and therefore does not show that the two models are appropriate models to estimate y.
+
+#### (g) For each model, discuss the associated diagnostic statistics (R^2, t-distribution,F-distribution)
+
+```{r}
+summary(lnrmdl)
+summary(nlnrmdl)
+```
+
+* For the linear model, the r-squared is 0.5316, which means that the variation in date explains 53.16% of the variation in monthly sales.  
+The p-value of the estimate for date is around 0, therefore the estimate is statistically significant. However, the p-value of the estimate for the intercept is 0.197, so it is not statistically significant and we cannot reject the null hypothesis that the intercept for the linear model is 0. 
+
+* The p-value associated with the F-stats for the full model is close to 0, therefore we reject the null hypothesisi that b0=b1=0.
+
+* For the log model, the r-squared is 0.6154, which means the variation in date explains 61.54$ of the variation in log of monthly sales. 
+
+* Both p-values of the intercept and b1 are close to 0, so we can reject the null hypothesss that b0 = 0 and b1 = 0.
+
+* The p-value of the F-stats associated with the full model is also close to 0, so we can reject the null hypotheses that b1=b0=0.
+
+#### (h) Select a trend model using AIC and one using BIC (show the values obtained from each criterion). Do the selected models agree?
+
+```{r}
+AIC(lnrmdl)
+AIC(nlnrmdl)
+
+BIC(lnrmdl)
+BIC(nlnrmdl)
+```
+
+* Both AIC and BIC agrees that the log model is a better model than the linear model.
+
+
+#### (i) Use your preferred model to forecast h-steps (at least 16) ahead. Your forecast should include the respective uncertainty prediction interval. Depending on your data, h will be in days, months, years, etc.
+
+
+```{r}
+#nonlinear model
+
+nlm1 <- lm(log(RSCCASN)~DATE, data = data.frame(RSCCASN))
+newdates <- data.frame(DATE = as.Date(c("2020-04-01","2020-05-01","2020-06-01","2020-07-01","2020-08-01","2020-09-01","2020-10-01","2020-11-01","2020-12-01","2021-01-01","2021-02-01","2021-03-01","2021-04-01","2021-05-01","2021-06-01","2021-07-01")))
+
+
+pred <- exp(Predict(nlm1,newdates, interval = "prediction"))
+plot(pred[,1], col = "red" , ylim = c(13000,40000), type = "o")
+lines(pred[,2], col = "grey" ,type = "o")
+lines(pred[,3], col = "grey",type = "o")
+```
+
+
+### 2. Modeling and Forecasting Seasonality (6% each)
+
+#### (a) Construct and test (by looking at the diagnostic statistics) a model with a full set of seasonal dummies.
+
+```{r}
+fit_season <- tslm(ts_df ~ season)
+summary(fit_season)
+```
+
+* According to the F-test with small p-value, we can reject the null hypothesis that all seasonal dummies are 0. Indeed, most of the seasonal dummies shown in the summary table are statistically significant. This indicates that the series has seasonality in it. 
+
+* The model with seasonal factors has a R square of 44.25%, meaning that the model explained 44.25% of the variation in clothing sales. This is not a very high R square, so we can try to add more factors to the model to improve it.
+
+#### (b) Plot the estimated seasonal factors and interpret your plot.
+```{r}
+plot(ts_df, main="Estimated seasonal factors")
+lines(fit_season$fitted.values, col="blue")
+```
+
+* The seasonality is mostly captured by the model, but we can see the original data has a upward trend, while the fitted data does not. This tells us the trend in the series is not included in the model.
+
+
+#### (c) In order to improve your model, add the trend model from problem 1 to your seasonal model. We will refer to this model as the full model. For the full model, plot the respective residuals vs. fitted values and discuss your observations.
+```{r}
+fit_full <- tslm(ts_df ~ trend + season)
+plot(fit_full$fitted.values,fit_full$residuals, main="Residual vs. Fitted of Full Model")
+```
+
+* The residual vs. fitted plot of the full model shows a overall random distribution of the residuals, with a slight spreading trend as the fitted values increase. It is also notable that there is an influential point which has large residual.
+
+#### (d) Interpret the respective summary statistics including the error metrics of your full model.
+```{r}
+summary(fit_full)
+
+# plot the seasonal factor 
+plot(fit_full$coefficients[-2], type="l", ylab="coefficient estimate",main = "Seasonal Factor")
+
+# Mean Absolute Percentage Error (MAPE)
+n <- length(ts_df)
+yhat <- fit_full$fitted.values
+(100/n)*sum(abs((ts_df-yhat)/ts_df))
+```
+
+* The full model has a trend coefficient estimate of 40.15, which means that on average, the clothing sales after seasonal adjustment increases 40 Millions each month. All seasonal dummies are significant, indicating that there is seasonality within the series. 
+
+* The baseline month in the model is January. An estimated coefficient of 1542 for season2 means the clothing sales in Feburary is 1.54 Billion higher than the sales in January. This logic works similarly for other seasonal dummies. The highest dummy estimate is for season12, which means the clothing sales in December is the highest of the year. This makes sense because stores usually go on sale at the end of the year, near Christmas and New Year holidays.
+
+* The full model has a high adjusted R square of 96%, which means the model is able to explain 96% of the variation in the clothing sales. The Mean Absolute Percentage Error of the model is 4.36%, indicating the forecasting error on the training data is about 4.36%.
+
+#### (e) Use the full model to forecast h-steps (at least 16) ahead. Your forecast should include the respective prediction interval.
+```{r}
+plot(forecast(fit_full,h=24),main="Full Model: Forecast Trend + Seasonality")
+```
+
+* The blue line is the forecast of the next two years (24-steps-ahead). The forecast would be quite accurate in usual condition. The prediction interval is not very large, which is satisfactory. 
+
+* However, the forecast is not able to take into account the huge drop in clothing sales casued by current COVID-19 pandemic. This phenomenon also indicates a shortcoming of the time series forecast, that is, not be able to capture shocks.
+
+## III. (5%) Conclusions and Future Work (state your conclusion regarding your final model and forecast, and provide some insight as to how it could be improved).
+
+* With different models tried, we select the model with trend and seasonal dummies as our final model as it has the highest adjusted R square of 96%. Moreover, this model would provide a reasonable forecast with a small interval. We conclude this is because clothing sales have strong seasonality as people tend to purchase more clothes during holiday seasons, when there are multiple sales going on. Particularly, we see from the series that sales are the highest near the end of the year. The ACF and PACF plots that show strong correlation between the data and the sales of the same month 1 year or 2 years ago also confirm the seasonality within the series.
+
+* One possible improvement of the model is to account for the increasing range of the monthly clothing and clothing accessories sales. In the 1990s, the range of monthly sales was about 10,000 million dollars, but in 2010s, the range increased to about 20,000 million dollars, but the range of our forecast is much smaller than 20,000 million dollars. We also believe that inflation played an important role in influencing the dollar amount of sales. We could potentially improve the model by adjusting for inflation over time. 
+
+
+## IV. (5%) References (include the source of your data and any other resources)
+
+* Source of data: https://fred.stlouisfed.org/series/RSCCASN

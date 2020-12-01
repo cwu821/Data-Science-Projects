@@ -1,0 +1,578 @@
+---
+title: "IMDB Movie Revenue Analysis"
+author: "Catherine Wu, Rachel Liu"
+date: "2/9/2020"
+output: html_document
+---
+* Fitted several models: Linear regression, Regularization, PCR, Random Forest, XGBoosting
+
+```{r}
+library(tidyverse) # Multiple packages
+library(plotly) # Interactive visualizations
+library(ggthemes) # Visualization themes
+library(viridis) # Color scales
+library(corrplot) # Correlation visualizations
+library(gridExtra) # Grids for visualizations
+library(VIM) # Visualizing missing values
+library(lubridate) # Working with dates
+library(randomForest) # Classification algorithm
+library(fastDummies)
+library(janitor)
+library(GuardianR)
+library(knitr)
+library(ggpubr)
+library(pander)
+library(MLmetrics)
+library(xgboost)
+library(car)
+```
+
+```{r}
+train <- read_csv("train.csv")
+test <- read_csv("test.csv")
+test$revenue <- NA
+full_data <- bind_rows(train, test)
+dim(full_data)  # 7398 x 23
+```
+
+```{r}
+full_clean <- full_data %>%
+  mutate(budget = ifelse(budget == 0, NA, budget))
+
+full_clean[full_clean['id'] == 16,  'budget']  <- 500000 * 1.5
+full_clean[full_clean['id'] == 16,  'revenue'] <- NA
+full_clean[full_clean['id'] == 117, 'revenue'] <- 312954
+full_clean[full_clean['id'] == 151, 'budget']  <- 3000000
+full_clean[full_clean['id'] == 151, 'revenue'] <- 18636482
+full_clean[full_clean['id'] == 153, 'revenue'] <- 241278
+full_clean[full_clean['id'] == 270, 'revenue'] <- 20018
+full_clean[full_clean['id'] == 281, 'budget']  <- 5250000
+full_clean[full_clean['id'] == 281, 'revenue'] <- 10155690
+full_clean[full_clean['id'] == 313, 'revenue'] <- 11814019
+full_clean[full_clean['id'] == 335, 'budget']  <- NA
+full_clean[full_clean['id'] == 335, 'revenue'] <- NA
+full_clean[full_clean['id'] == 348, 'budget']  <- NA
+full_clean[full_clean['id'] == 348, 'revenue'] <- 72844
+full_clean[full_clean['id'] == 403, 'revenue'] <- 10078
+full_clean[full_clean['id'] == 451, 'revenue'] <- 12195626
+full_clean[full_clean['id'] == 470, 'budget']  <- 13000000
+full_clean[full_clean['id'] == 499, 'revenue'] <- 25317
+full_clean[full_clean['id'] == 513, 'budget']  <- NA
+full_clean[full_clean['id'] == 580, 'revenue'] <- NA
+full_clean[full_clean['id'] == 640, 'budget']  <- 6000000
+full_clean[full_clean['id'] == 640, 'revenue'] <- 8598593
+full_clean[full_clean['id'] == 665, 'budget']  <- 15000000
+full_clean[full_clean['id'] == 665, 'revenue'] <- 70936
+full_clean[full_clean['id'] == 666, 'revenue']  <- 11514
+full_clean[full_clean['id'] == 696, 'budget']  <- NA
+full_clean[full_clean['id'] == 696, 'revenue'] <- NA
+full_clean[full_clean['id'] == 797, 'budget']  <- NA 
+full_clean[full_clean['id'] == 850, 'budget']  <- 1500000
+full_clean[full_clean['id'] == 850, 'revenue'] <- 163577
+full_clean[full_clean['id'] == 887, 'revenue'] <- NA
+full_clean[full_clean['id'] == 1008, 'revenue'] <- NA
+full_clean[full_clean['id'] == 1139, 'revenue'] <- 16094974
+full_clean[full_clean['id'] == 1142, 'revenue'] <- 13746
+full_clean[full_clean['id'] == 1162, 'budget'] <- 200000
+full_clean[full_clean['id'] == 1162, 'revenue'] <- 121107
+full_clean[full_clean['id'] == 1191, 'budget'] <- 2000000
+full_clean[full_clean['id'] == 1191, 'revenue'] <- 7660857
+full_clean[full_clean['id'] == 1199, 'budget'] <- 5000000
+full_clean[full_clean['id'] == 1199, 'revenue'] <- 85196485
+full_clean[full_clean['id'] == 1241, 'revenue'] <- 379466
+full_clean[full_clean['id'] == 1282, 'revenue'] <- 8580428
+full_clean[full_clean['id'] == 1347, 'budget'] <- NA
+full_clean[full_clean['id'] == 1347, 'revenue'] <- NA
+full_clean[full_clean['id'] == 1377, 'budget'] <- 1.35 * 500000
+full_clean[full_clean['id'] == 1377, 'revenue'] <- 1129408
+full_clean[full_clean['id'] == 1480, 'revenue'] <- 127257
+full_clean[full_clean['id'] == 1542, 'revenue'] <- NA
+full_clean[full_clean['id'] == 1702, 'revenue'] <- NA
+full_clean[full_clean['id'] == 1755, 'budget'] <- 2000000
+full_clean[full_clean['id'] == 1755, 'revenue'] <- 1125910
+full_clean[full_clean['id'] == 1801, 'budget'] <- 5000000
+full_clean[full_clean['id'] == 1801, 'revenue'] <- 135280
+full_clean[full_clean['id'] == 1875, 'revenue'] <- NA
+full_clean[full_clean['id'] == 1885, 'revenue'] <- 4750602
+full_clean[full_clean['id'] == 1918, 'budget'] <- 608016
+full_clean[full_clean['id'] == 1918, 'revenue'] <- NA
+full_clean[full_clean['id'] == 1949, 'revenue'] <- 204612
+full_clean[full_clean['id'] == 1965, 'budget'] <- 1.5 * 1450000
+full_clean[full_clean['id'] == 2033, 'budget'] <- 799520
+full_clean[full_clean['id'] == 2033, 'revenue'] <- NA
+full_clean[full_clean['id'] == 2091, 'revenue'] <- 18369
+full_clean[full_clean['id'] == 2118, 'budget'] <- NA
+full_clean[full_clean['id'] == 2118, 'revenue'] <- 344992
+full_clean[full_clean['id'] == 2252, 'budget'] <- 600000000 / 50
+full_clean[full_clean['id'] == 2252, 'revenue'] <- 1834384
+full_clean[full_clean['id'] == 2256, 'budget'] <- 30000000
+full_clean[full_clean['id'] == 2256, 'revenue'] <- 6552255
+full_clean[full_clean['id'] == 2264, 'budget'] <- 500000
+full_clean[full_clean['id'] == 2324, 'revenue'] <- 32712
+full_clean[full_clean['id'] == 2369, 'budget'] <- 15000000 * 0.13
+full_clean[full_clean['id'] == 2384, 'revenue'] <- 1090000
+full_clean[full_clean['id'] == 2385, 'revenue'] <- NA
+full_clean[full_clean['id'] == 2400, 'revenue'] <- NA
+full_clean[full_clean['id'] == 2434, 'revenue'] <- 32417995
+full_clean[full_clean['id'] == 2475, 'budget'] <- 45000000 / 6
+full_clean[full_clean['id'] == 2475, 'revenue'] <- 23462
+full_clean[full_clean['id'] == 2491, 'revenue'] <- 6858261
+full_clean[full_clean['id'] == 2578, 'revenue'] <- NA
+full_clean[full_clean['id'] == 2583, 'revenue'] <- NA
+full_clean[full_clean['id'] == 2611, 'budget'] <- NA
+full_clean[full_clean['id'] == 2611, 'revenue'] <- NA
+full_clean[full_clean['id'] == 2696, 'budget'] <- 10000000
+full_clean[full_clean['id'] == 2696, 'revenue'] <- 80231
+full_clean[full_clean['id'] == 2760, 'revenue'] <- NA
+full_clean[full_clean['id'] == 2811, 'budget'] <- 12000000
+full_clean[full_clean['id'] == 2811, 'revenue'] <- 9233
+full_clean[full_clean['id'] == 2865, 'budget'] <- NA
+full_clean[full_clean['id'] == 2865, 'revenue'] <- NA
+full_clean[full_clean['id'] == 2875, 'revenue'] <- NA
+full_clean[full_clean['id'] == 3033, 'budget'] <- 250000
+full_clean[full_clean['id'] == 3051, 'budget'] <- NA
+full_clean[full_clean['id'] == 3084, 'budget'] <- 337000
+full_clean[full_clean['id'] == 3224, 'budget'] <- 4500000
+full_clean[full_clean['id'] == 3594, 'budget'] <- 50000000
+full_clean[full_clean['id'] == 3619, 'budget'] <- NA
+full_clean[full_clean['id'] == 3831, 'budget'] <- 3000000
+full_clean[full_clean['id'] == 3935, 'budget'] <- 500000
+full_clean[full_clean['id'] == 4049, 'budget'] <- 19000000
+full_clean[full_clean['id'] == 4424, 'budget'] <- 3500000
+full_clean[full_clean['id'] == 4460, 'budget'] <- 8000000
+full_clean[full_clean['id'] == 4555, 'budget'] <- 12000000
+full_clean[full_clean['id'] == 4624, 'budget'] <- 30000000
+full_clean[full_clean['id'] == 4645, 'budget'] <- NA
+full_clean[full_clean['id'] == 4709, 'budget'] <- 450000
+full_clean[full_clean['id'] == 4839, 'budget'] <- 6500000
+full_clean[full_clean['id'] == 4903, 'budget'] <- 15000000
+full_clean[full_clean['id'] == 4983, 'budget'] <- NA
+full_clean[full_clean['id'] == 5102, 'budget'] <- 27000000
+full_clean[full_clean['id'] == 5217, 'budget'] <- 200000000 / 50
+full_clean[full_clean['id'] == 5224, 'budget'] <- NA
+full_clean[full_clean['id'] == 5469, 'budget'] <- NA
+full_clean[full_clean['id'] == 5840, 'budget'] <- 20000000
+full_clean[full_clean['id'] == 5960, 'budget'] <- 30000000
+full_clean[full_clean['id'] == 6506, 'budget'] <- 11000000
+full_clean[full_clean['id'] == 6553, 'budget'] <- 280000
+full_clean[full_clean['id'] == 6561, 'budget'] <- 7000000
+full_clean[full_clean['id'] == 6638, 'budget'] <- NA
+full_clean[full_clean['id'] == 6749, 'budget'] <- NA
+full_clean[full_clean['id'] == 6856, 'budget'] <- 10000000
+full_clean[full_clean['id'] == 6969, 'budget'] <- 1.6 * 120000
+full_clean[full_clean['id'] == 7079, 'budget'] <- NA
+full_clean[full_clean['id'] == 7150, 'budget'] <- NA
+full_clean[full_clean['id'] == 7225, 'budget'] <- NA
+```
+
+# drop observations with NA revenue
+```{r}
+full_clean <- full_clean[!is.na(full_clean$revenue)&!is.na(full_clean$budget),]
+```
+
+# date and adjust for inflation
+```{r}
+full_clean_sub <- full_clean %>% 
+  mutate(release_date = mdy(release_date),
+         quarter = quarter(release_date),
+         month = month(release_date),
+         revenue_adj = case_when((release_date < "1990-01-01") ~ revenue * 2.44,
+                                 (release_date < "2000-01-01") ~ revenue * 1.9,
+                                 (release_date < "2010-01-01") ~ revenue * 1.31,
+                                 TRUE ~ revenue)) %>%
+# the IMDB filter ensures that we don't accidentally "backcast" old movies
+# e.g., 20,000 Leagues Under the Sea was originally released in 1916,
+#but the lubridate::mdy() function coerces it be 2016
+          filter(imdb_id >= "tt0065528", between(release_date, "1980-01-01", today()))
+
+
+full_clean_sub <- full_clean_sub %>%
+  mutate(budget_adj = case_when((release_date < "1990-01-01") ~ budget * 2.44,
+                                 (release_date < "2000-01-01") ~ budget * 1.9,
+                                 (release_date < "2010-01-01") ~ budget * 1.31,
+                                 TRUE ~ budget))
+
+```
+
+### Popular month
+```{r}
+full_clean_sub %>% group_by(month) %>% summarise(mean_rev=mean(revenue,na.rm=T),median_rev=median(revenue,na.rm=T)) %>% arrange(desc(median_rev))
+full_clean_sub <- full_clean_sub %>% mutate(holiday=ifelse(month %in% c(6,7,12),1,0))
+```
+
+### run time
+```{r}
+full_clean_sub %>% ggplot(aes(runtime, revenue)) + geom_point()
+full_clean_sub <- full_clean_sub %>% 
+  mutate(runtime_cat = ifelse(runtime < 75, 0, ifelse(runtime > 180, 0, 1)))
+```
+
+### clean production countries: only keep those with 200+ movies
+```{r}
+full_clean_sub$production_countries <- substring(full_clean_sub$production_countries, 18, 19)
+country_count <- full_clean_sub %>% 
+  group_by(production_countries) %>% 
+  summarise(country_count = n(), median_rev = median(revenue_adj, na.rm = T)) %>%
+  arrange(desc(country_count))
+
+# keep countries with more than 200 movies
+country_50more <- country_count[which(country_count$country_count > 200), 1] %>% unlist(.)
+full_clean_sub$production_countries <- ifelse(full_clean_sub$production_countries%in%country_50more, full_clean_sub$production_countries,"others")
+
+# us vs. non-us
+full_clean_sub <- full_clean_sub %>% mutate(production_country_us = ifelse(production_countries=="US",production_countries,"Non-US"))
+```
+
+###language, english vs. non-english
+```{r}
+full_clean_sub$Eng_NonEng <- ifelse(full_clean_sub$original_language == "en", "Eng", "Non-Eng")
+table(full_clean_sub$Eng_NonEng)
+```
+
+# Production companies
+```{r}
+full_clean_sub$production_companies <-gsub('(^\\[\\{\'name\'\\:\\s\'|\'\\,\\s\'id.*)', '',full_clean_sub$production_companies) 
+head(full_clean_sub$production_companies) ## sanity check
+
+full_clean_sub %>% 
+  group_by(production_companies) %>% 
+  summarise(count=n()) %>% 
+  arrange(desc(count)) %>% 
+  head(20)
+
+#separate movies from top 8 big name production companies
+famous_production <- c("Universal Pictures", "Paramount Pictures", 
+                       "Twentieth Century Fox Film Corporation", "Columbia Pictures",
+                       "New Line Cinema", "Walt Disney Pictures", "Warner Bros.")
+
+full_clean_sub <- full_clean_sub %>% 
+  mutate(is_famous_production_companies = ifelse(production_companies %in% famous_production, 1, 0))
+full_clean_sub <- full_clean_sub %>% 
+  mutate(production_companies = ifelse(production_companies %in% famous_production, production_companies, "Others"))
+
+full_clean_sub %>% group_by(is_famous_production_companies) %>% summarise(mean(revenue, na.rm = T)) ##sanity check
+```
+### number of cast
+```{r}
+full_clean_sub$number_of_cast <- str_count(full_clean_sub$cast, 'name')
+full_clean_sub$female_cast <- str_count(full_clean_sub$cast, ('gender\'\\:\\s1'))
+full_clean_sub$male_cast <- str_count(full_clean_sub$cast, ('gender\'\\:\\s2'))
+```
+
+
+# Genre: main and all 
+```{r}
+genres <- full_clean_sub$genres %>%
+  str_extract_all("(?<='name': ')[a-zA-Z_ ]*") %>%
+  unlist() %>%
+  unique() %>%
+  subset(subset = !is.na(.))
+
+full_clean_sub <- full_clean_sub %>%
+  mutate(genres = str_extract_all(genres, "(?<='name': ')[a-zA-Z_ ]*"))
+
+full_clean_sub$main_genre <- NA
+for(i in 1:nrow(full_clean_sub)){
+  full_clean_sub$main_genre[i] <- full_clean_sub$genres[i][[1]][1]
+}
+full_clean_sub$main_genre <- unlist(full_clean_sub$main_genre)
+
+# categorize according to profitability
+full_clean_sub %>% group_by(main_genre) %>% summarise(mean_rev=mean(revenue_adj, na.rm=T), median_rev = median(revenue, na.rm=T)) %>% arrange(desc(mean_rev))
+
+profit_genre <- c("Adventure","Science Fiction","Family","Animation","Western","Action","Fantasy")
+full_clean_sub <- full_clean_sub %>% 
+  mutate(main_genre_profit = ifelse(main_genre %in% profit_genre, 1, 0))
+full_clean_sub %>% group_by(main_genre_profit) %>% summarise(mean=mean(revenue,na.rm=T), count=n())
+
+# keep genres with more than 100 movies
+top_genre <- c("Drama","Comedy","Action","Adventure","Horror","Crime","Thriller")
+full_clean_sub <- full_clean_sub %>% 
+  mutate(main_genre_top = ifelse(main_genre %in% top_genre, 1, 0))
+
+
+```
+
+### words in tag, title, overview, keywords
+```{r}
+full_clean_sub$words_in_tag <- str_count(full_clean_sub$tagline, boundary('word'))
+full_clean_sub$words_in_title <- str_count(full_clean_sub$original_title, boundary('word'))
+full_clean_sub$words_overview <- str_count(full_clean_sub$overview, boundary('word'))
+
+# keywords
+full_clean_sub$number_keywords <- str_count(full_clean_sub$Keywords, 'name')
+```
+
+```{r}
+head(full_clean_sub)
+```
+
+### drop not useful variables
+```{r}
+data <- subset(full_clean_sub, select=c(revenue,budget,is_famous_production_companies,production_country_us,Eng_NonEng,number_of_cast, female_cast, male_cast, words_in_tag,words_in_title,words_overview,number_keywords, main_genre_top,main_genre_profit, holiday, quarter, runtime_cat, runtime ))
+```
+
+<!-- ### drop NA revenue rows -->
+<!-- ```{r} -->
+<!-- datanew <- data[!is.na(data$revenue)&!is.na(data$budget),] -->
+<!-- ``` -->
+
+# percentage of NA in each variables
+```{r}
+datanew <- data
+tidyr::gather(summarize_each(datanew, funs(sum(is.na(.))/n())), key = "feature", value = "missing_pct") %>% ggplot(aes(reorder(feature, missing_pct), missing_pct)) + 
+  geom_bar(stat = "identity") + 
+  coord_flip() +
+  ggtitle("Percentage of Missing Values for Features")
+```
+
+### impute NA with means
+```{r}
+datanew$words_in_tag[is.na(datanew$words_in_tag)] <- mean(datanew$words_in_tag, na.rm = T)
+datanew$number_keywords[is.na(datanew$number_keywords)] <- mean(datanew$number_keywords, na.rm = T)
+
+datanew$runtime[is.na(datanew$runtime)] <- mean(datanew$runtime, na.rm = T)
+datanew$runtime[datanew$runtime==0] <- mean(datanew$runtime, na.rm = T)
+datanew$runtime_cat[is.na(datanew$runtime_cat)] <- 1
+
+datanew$words_overview[is.na(datanew$words_overview)] <- mean(datanew$words_overview, na.rm = T)
+
+datanew$number_of_cast[datanew$number_of_cast==0] <- mean(datanew$number_of_cast, na.rm=TRUE)
+
+```
+
+### change characters to factors
+```{r}
+datanew$quarter <- as.factor(datanew$quarter)
+datanew$main_genre_profit <- as.factor(datanew$main_genre_profit)
+datanew$main_genre_top <- as.factor(datanew$main_genre_top)
+datanew$Eng_NonEng <- as.factor(datanew$Eng_NonEng)
+datanew$production_country_us <- as.factor(datanew$production_country_us)
+datanew$runtime_cat <- as.factor(datanew$runtime_cat)
+datanew$is_famous_production_companies <- as.factor(datanew$is_famous_production_companies)
+datanew$holiday <- as.factor(datanew$holiday)
+```
+
+## plot of each variables
+```{r}
+pairs(datanew[,c("revenue","budget","number_of_cast","female_cast","male_cast","words_in_tag","words_in_title","words_overview","number_keywords","runtime")], cex=0.5)
+```
+
+
+# MODELING 
+
+```{r}
+set.seed(23455)
+index <- sample(1:nrow(datanew), 0.5 * nrow(datanew))
+train_df <- datanew[index,]
+test_df <- datanew[-index,]
+```
+
+### linear regression
+```{r}
+# model 1: MLR with all variables 
+lm1 <- lm(revenue ~., data=train_df)
+summary(lm1)
+plot(lm1)
+
+# model 2: MLR only keeps significant factors
+lm2 <- lm(revenue ~ budget+is_famous_production_companies+number_of_cast+male_cast+words_in_title+number_keywords+main_genre_top+holiday, data=train_df)
+summary(lm2)
+
+# model 3: MLR only keeps significant factors, remove bad leverage
+influenceIndexPlot(lm2, var="cook", id=list(n=5))
+train_df_new <- train_df[-556,]
+lm3 <- lm(revenue ~ budget+is_famous_production_companies+number_of_cast+male_cast+words_in_tag+words_in_title+number_keywords+main_genre_top+holiday, data=train_df_new)
+summary(lm3)
+
+# model 4: MLR with power transformation
+inverseResponsePlot(lm3)
+lm4 <- lm(revenue^0.7 ~ budget+is_famous_production_companies+number_of_cast+male_cast+words_in_tag+words_in_title+number_keywords+main_genre_top+holiday, data=train_df_new)
+summary(lm4)
+
+# no multicollinearity issue
+vif(lm4)
+
+# RESET test
+library(lmtest)
+resettest(lm4, power=2,type="regressor")
+
+
+# model 5: MLR with power transformation
+lm5 <- lm(I(revenue^0.2) ~ I(budget^0.25)+is_famous_production_companies+log(number_of_cast)+male_cast+I(words_in_tag^0.08)+log(words_in_title)+I(number_keywords^(1/3))+main_genre_top+holiday, data=train_df_new)
+summary(lm5)
+
+# Non-constant variance test
+ncvTest(lm5)
+
+
+# fit testing data
+lm4_pred <- predict(lm4,newdata = test_df)
+lm4_pred_trans <- lm4_pred^(1/0.7)
+lm4_pred_trans[is.na(lm4_pred_trans)] <- mean(lm4_pred_trans, na.rm=T)
+pred <- lm4_pred_trans
+### find R^2
+actual <- (test_df$revenue)
+rss <- sum((pred - actual) ^ 2)
+tss <- sum((actual - mean(actual)) ^ 2)
+rsq <- 1 - rss/tss
+rsq
+
+```
+
+### Mallow CP
+```{r}
+library(leaps)
+ss=regsubsets(revenue ~ budget+is_famous_production_companies+number_of_cast+male_cast+words_in_tag+words_in_title+number_keywords+main_genre_top+holiday, data=train_df_new)
+subsets(ss,statistic="cp",legend=F,main="Mallows CP",col="steelblue4") 
+# further shrink to five predictors: budget, is_famous_production_companies, number of casts, number of keywords, holiday
+
+lm6 <- lm(revenue^0.7 ~ budget+is_famous_production_companies+number_of_cast+number_keywords+holiday, data=train_df_new)
+summary(lm6)
+resettest(lm6, power=2,type="regressor")
+
+#
+
+# Power Transformation
+lm7 <- lm(revenue^0.2 ~ I(budget^0.27)+log(number_of_cast)+is_famous_production_companies+I(number_keywords^0.33)+holiday, data=train_df_new)
+summary(lm7)
+plot(lm7)
+ncvTest(lm7)
+vif(lm7)
+
+summary(powerTransform(cbind(revenue,budget,number_of_cast,number_keywords)~1, data=train_df_new))
+```
+
+### train_control stuff...
+```{r}
+library(caret)
+
+# Set training control
+train_control <- trainControl(method = "cv",
+                              number = 10,
+                              search = "random")
+# linear model
+lm_model <- train(revenue ~ .,
+                           data = datanew,
+                           method = "lm",
+                           trControl = train_control,
+                           preProc = c("center", "scale"))
+print(lm_model)
+
+# LASSO
+lasso_model <- train(revenue ~ .,
+                           data = datanew,
+                           method = "lasso",
+                           trControl = train_control,
+                          preProc = c("center", "scale"))
+
+print(lasso_model)
+
+# Random Forest
+rf_model <- train(revenue ~ .,
+                           data = datanew,
+                           method = "rf",
+                           trControl = train_control,
+                          preProc = c("center", "scale"))
+print(rf_model)
+```
+
+# Regularization
+```{r}
+# LASSO
+library(glmnet)
+X <- model.matrix(revenue~.,train_df_new)[,-1]
+y <-  train_df_new$revenue %>% scale(center=TRUE, scale=TRUE) %>% as.matrix()
+xtest <- model.matrix(revenue~.,test_df)[,-1]
+grid=10^seq(1.5,-3,by=-0.1)
+cv.lasso=cv.glmnet(X,y, alpha=1,lambda = grid, standardize = TRUE, nfolds = 10)
+
+best_lam_lasso = cv.lasso$lambda.min
+plot(cv.lasso)
+lasso_fit= glmnet(X,y, alpha=1, lambda = grid, standardize = TRUE)
+plot(lasso_fit,xvar="lambda")
+
+lasso.best <- glmnet(X,y,alpha=1,lambda = best_lam_lasso, standardize = TRUE)
+coef(lasso.best)
+pred <- predict(lasso.best, s = best_lam_lasso, newx = xtest)
+
+### find R^2
+actual <- (test_df$revenue) %>% scale()
+rss <- sum((pred - actual) ^ 2)
+tss <- sum((actual - mean(actual)) ^ 2)
+rsq <- 1 - rss/tss
+rsq
+
+# Ridge
+grid=10^seq(3,-3,by=-0.1)
+cv.ridge=cv.glmnet(X,y, alpha=0,lambda = grid, standardize=TRUE, nfolds = 10)
+best_lam_ridge = cv.ridge$lambda.min
+plot(cv.ridge)
+
+ridge_fit=glmnet(X,y,alpha=0,lambda=grid,standardize = TRUE)
+plot(ridge_fit,xvar="lambda")
+
+ridge.best <- glmnet(X,y,alpha=0,lambda = best_lam_ridge)
+coef(ridge.best)
+
+pred <- predict(ridge.best, s = best_lam_ridge, newx = xtest)
+
+### find R^2
+actual <- test_df$revenue %>% scale()
+rss <- sum((pred - actual) ^ 2)
+tss <- sum((actual - mean(actual)) ^ 2)
+rsq <- 1 - rss/tss
+rsq
+```
+
+### PCR
+```{r}
+library(pls)
+pcr.fit=pcr(revenue ~ budget+is_famous_production_companies+number_of_cast+number_keywords+holiday, data=train_df_new,scale=TRUE,validation ="CV")
+summary(pcr.fit)
+validationplot(pcr.fit,val.type="MSEP")
+
+# need all principal component
+```
+
+### Decision Tree
+```{r}
+library(tree)
+tree.model <- tree(revenue ~ budget+is_famous_production_companies+number_of_cast+number_keywords+holiday, data=train_df_new)
+plot(tree.model)
+text(tree.model,cex=0.8)
+```
+
+### Random Forest
+```{r}
+set.seed(12348)
+rf_default <- randomForest(revenue^0.5~., data = train_df_new, ntree = 500, important = T)
+print(rf_default)
+rf_pred <- predict(rf_default, test_df) #make prediction
+data.frame(rf_pred, test_df$revenue)        #check predictions
+rf_mse <- MLmetrics::MSE(rf_pred, test_df$revenue)
+# rf_mse < lm_mse  #TRUE, meaning that random forest model is better than linear model
+
+## variable importance (i.e.mean decrease in node impurity)
+importance <- importance(rf_default)
+feature_imp <- data.frame(importance) %>%
+  arrange(-IncNodePurity) %>%
+  mutate(mean_decrease_accuracy = round(IncNodePurity/sum(IncNodePurity) * 100, 2))
+
+varImportance <- data.frame(Variables = row.names(importance), Importance = feature_imp$mean_decrease_accuracy) %>% arrange(-Importance) %>% top_n(10)
+
+rankImportance <- varImportance %>%
+  mutate(Rank=paste0('#',dense_rank(desc(varImportance$Importance))))
+rankImportance[10,"Rank"] <- ""
+
+rf_plot <- ggplot(rankImportance, aes(x=reorder(Variables, Importance), y=Importance, fill=Importance))+
+ geom_bar(stat='identity') +
+ labs(x = 'Variables') +
+ coord_flip() +
+ theme_classic() +
+  ggtitle("Top 10 Important Features by Random Forest")
+rf_plot
+```
+
+
+

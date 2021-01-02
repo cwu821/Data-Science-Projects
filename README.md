@@ -5,7 +5,10 @@ I am currently a first year graduate student at Columbia University in Business 
 
 ## Project descriptions:
 
-- Movie Revenue analysis in R 
-Description: This is a project analyzing IMDB movie database. We have conducted exploratory analysis and some modeling (Random forest, XGBoosting) to find what drives movie revenue so that we could project insights for stakeholders such as movie production companies and movie theaters to optimize their marketing strategies.
-Deliverable: Poster [generated](https://github.com/cwu821/Data-Science-Projects/blob/master/Poster_MovieRev_Analysis.pdf) using RPosterdown and the original Rmarkdown file.
+- Movie Revenue Analysis in R 
+  - Description: This is a project analyzing IMDB movie database. We have conducted exploratory analysis and some modeling (Random forest, XGBoosting) to find what drives movie revenue so that we could project insights for stakeholders such as movie production companies and movie theaters to optimize their marketing strategies.
+  - Deliverable: [Poster](https://github.com/cwu821/Data-Science-Projects/blob/master/Poster_MovieRev_Analysis.pdf) using RPosterdown and the original [Rmarkdown file](https://github.com/cwu821/Data-Science-Projects/blob/master/R_MovieRev_Analysis.Rmd).
 
+
+- Hotel Cancelation Analysis in Python
+  - Description: 

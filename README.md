@@ -11,7 +11,7 @@ I am currently a first year graduate student at Columbia University in Business 
 
 - Hotel Cancelation Analysis in Python
   - Description: This is a project analyzing the [hotel cancelation data](https://www.kaggle.com/jessemostipak/hotel-booking-demand) collected from Kaggle. The goal of the project is to predict whether the booking will be canceled. Throughout the process, we have cleaned the dataset, performed exploratory analysis, built visualizations of the variables, applied several models (decision tree, random forest, logistic regression), and derived several actionable insights for hotels to improve their business performance.
-  - Deliverale: [Python Notebook](https://github.com/cwu821/Data-Science-Projects/blob/master/Python_Hotel_Cancelation_Analysis.ipynb).
+  - Deliverable: [Python Notebook](https://github.com/cwu821/Data-Science-Projects/blob/master/Python_Hotel_Cancelation_Analysis.ipynb).
   
 - Retail Sales Forecast in R
   - Desctiption: This project used several time series models, such as ARIMA, Holt-Winters, and GARCH, on [U.S. retail sales data](https://fred.stlouisfed.org/series/RSCCAS) to model trend, seasonality, and volatility. The best model achieves an accuracy rate of 96%. As the retail sales of clothing can be closely related to people’s purchasing power and economics background, we believe analyzing this series of clothing sales can be helpful in analyzing the economics market in general.  
